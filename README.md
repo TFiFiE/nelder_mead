@@ -1,5 +1,5 @@
 # Example usage:
-```
+```C++
 #include <iostream>
 #include "nelder_mead.hpp"
 
