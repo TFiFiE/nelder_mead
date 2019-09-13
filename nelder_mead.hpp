@@ -137,13 +137,13 @@ struct NelderMead {
         const Vertex outsideContraction=extrapolate(bestCentroid,reflection,contractionParameter,function,OUTSIDE_CONTRACTION);
 
         if (!isBetterThan(reflection,outsideContraction))
-          return contraction(outsideContraction);
+          return contract(outsideContraction);
       }
       else {
         const Vertex insideContraction=extrapolate(bestCentroid,*worst,contractionParameter,function,INSIDE_CONTRACTION);
 
         if (isBetterThan(insideContraction,*worst))
-          return contraction(insideContraction);
+          return contract(insideContraction);
       }
 
       const Input oldBest=input(*best);
@@ -156,7 +156,7 @@ struct NelderMead {
     }
   }
 
-  int contraction(const Vertex& contraction)
+  int contract(const Vertex& contraction)
   {
     const auto displaced=upper_bound(best,worst,contraction,isBetterThan);
     move_backward(displaced,worst,pastWorst);
