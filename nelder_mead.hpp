@@ -23,7 +23,7 @@ struct NelderMead {
 
   std::vector<Vertex> vertices;
   const typename std::vector<Vertex>::iterator best,pastWorst,secondBest,worst,secondWorst;
-  Number oneOverNumBest;
+  const Number oneOverNumBest;
   Input bestCentroid;
 
   template<class Iterator>
@@ -150,7 +150,6 @@ struct NelderMead {
       for (auto vertex=secondBest;vertex!=pastWorst;++vertex)
         *vertex=extrapolate(input(*best),*vertex,shrinkageParameter,function,SHRINK);
       stable_sort(best,pastWorst,isBetterThan);
-
       bestCentroid=centroid(best,worst,oneOverNumBest);
       return oldBest==input(*best) ? 1 : 0;
     }
@@ -165,6 +164,15 @@ struct NelderMead {
     if (displaced!=worst)
       updateBestCentroid(contraction);
     return distance(best,displaced);
+  }
+
+  template<class Function>
+  void recalculate(Function function)
+  {
+    for (auto& vertex:vertices)
+      output(vertex)=function(input(vertex),INITIALIZATION);
+    stable_sort(best,pastWorst,isBetterThan);
+    bestCentroid=centroid(best,worst,oneOverNumBest);
   }
 
   template<class Iterator,class Function>
