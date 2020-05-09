@@ -99,11 +99,11 @@ struct NelderMead {
   }
 
   template<class Function>
-  int iteration(Function function,
-                const Number inverseReflectionParameter=-1,
-                const Number expansionParameter=1+2/Number(dimensions),
-                const Number contractionParameter=3/Number(4)-1/Number(2*dimensions),
-                const Number shrinkageParameter=1-1/Number(dimensions))
+  std::pair<Step,int> iteration(Function function,
+                                const Number inverseReflectionParameter=-1,
+                                const Number expansionParameter=1+2/Number(dimensions),
+                                const Number contractionParameter=3/Number(4)-1/Number(2*dimensions),
+                                const Number shrinkageParameter=1-1/Number(dimensions))
   {
     assert(is_sorted(best,pastWorst,isBetterThan));
 
@@ -117,19 +117,20 @@ struct NelderMead {
         if (isBetterThan(expansion,reflection)) {
           *best=expansion;
           updateBestCentroid(expansion);
+          return {EXPANSION,0};
         }
         else {
           *best=reflection;
           updateBestCentroid(reflection);
+          return {REFLECTION,0};
         }
-        return 0;
       }
       else {
         const auto displaced=upper_bound(secondBest,secondWorst,reflection,isBetterThan);
         move_backward(displaced,worst,pastWorst);
         *displaced=reflection;
         updateBestCentroid(reflection);
-        return distance(best,displaced);
+        return {REFLECTION,distance(best,displaced)};
       }
     }
     else {
@@ -137,13 +138,13 @@ struct NelderMead {
         const Vertex outsideContraction=extrapolate(bestCentroid,reflection,contractionParameter,function,OUTSIDE_CONTRACTION);
 
         if (!isBetterThan(reflection,outsideContraction))
-          return contract(outsideContraction);
+          return {OUTSIDE_CONTRACTION,contract(outsideContraction)};
       }
       else {
         const Vertex insideContraction=extrapolate(bestCentroid,*worst,contractionParameter,function,INSIDE_CONTRACTION);
 
         if (isBetterThan(insideContraction,*worst))
-          return contract(insideContraction);
+          return {INSIDE_CONTRACTION,contract(insideContraction)};
       }
 
       const Input oldBest=input(*best);
@@ -151,7 +152,7 @@ struct NelderMead {
         *vertex=extrapolate(input(*best),*vertex,shrinkageParameter,function,SHRINK);
       stable_sort(best,pastWorst,isBetterThan);
       bestCentroid=centroid(best,worst,oneOverNumBest);
-      return oldBest==input(*best) ? 1 : 0;
+      return {SHRINK,oldBest==input(*best) ? 1 : 0};
     }
   }
 
