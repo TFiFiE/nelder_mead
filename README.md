@@ -22,21 +22,21 @@ template<class Number> struct Himmelblau {
 };
 
 template<class Number, class Generator, class Function>
-void findOptimum(Generator& generator, Function function)
+void find_optimum(Generator& generator, Function function)
 {
   typedef NelderMead<Number, 2> NelderMead;
 
-  const auto simplex = NelderMead::randomPolytope(generator, {{{-4, 4}, {-4, 4}}});
-  auto nelderMead = NelderMead::create(simplex, function);
+  const auto simplex = NelderMead::random_polytope(generator, {{{-4, 4}, {-4, 4}}});
+  auto nelder_mead = NelderMead::create(simplex, function);
 
   while (true) {
-    const auto oldWorst = *nelderMead.worst;
-    nelderMead.iteration(function);
-    if (oldWorst == *nelderMead.worst)
+    const auto old_worst = *nelder_mead.worst;
+    nelder_mead.iteration(function);
+    if (old_worst == *nelder_mead.worst)
       break;
   }
 
-  const auto result = *nelderMead.best;
+  const auto result = *nelder_mead.best;
   std::cout << result.first[0] << ',' << result.first[1] << ':' << result.second << '\n';
 }
 
@@ -44,7 +44,7 @@ int main()
 {
   std::mt19937 generator((std::random_device())());
   typedef long double Number;
-  findOptimum<Number>(generator, Rosenbrock<Number>());
-  findOptimum<Number>(generator, Himmelblau<Number>());
+  find_optimum<Number>(generator, Rosenbrock<Number>());
+  find_optimum<Number>(generator, Himmelblau<Number>());
 }
 ```
