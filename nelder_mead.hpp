@@ -61,7 +61,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     return result;
   }
 
-  template<class Function> static Vertex extrapolate(const Input& origin, const Vertex& reference, const Number factor, Function function, const Step step)
+  template<class Function> static Vertex extrapolate(const Input& origin, const Vertex& reference, const Number factor, Function& function, const Step step)
   {
     Vertex result;
     for (unsigned int c = 0; c < dimensions; ++c)
@@ -77,7 +77,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
   }
 
   template<class Function>
-  std::pair<Step, int> iteration(Function function,
+  std::pair<Step, int> iteration(Function& function,
                                  const Number inverse_reflection_parameter = -1,
                                  const Number expansion_parameter = 1 + 2 / Number(dimensions),
                                  const Number contraction_parameter = 3 / Number(4) - 1 / Number(2 * dimensions),
@@ -141,7 +141,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     return distance(best, displaced);
   }
 
-  template<class Function> void recalculate(Function function)
+  template<class Function> void recalculate(Function& function)
   {
     for (auto& vertex : vertices)
       output(vertex) = function(input(vertex), INITIALIZATION);
@@ -149,7 +149,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     best_centroid = centroid(best, worst, one_over_num_best);
   }
 
-  template<class Iterator, class Function> static NelderMead<Number, dimensions> create(const Iterator begin, const Iterator end, Function function)
+  template<class Iterator, class Function> static NelderMead<Number, dimensions> create(const Iterator begin, const Iterator end, Function& function)
   {
     const unsigned int num_vertices = distance(begin, end);
     assert(num_vertices > 1);
@@ -163,7 +163,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     return NelderMead<Number, dimensions>(vertices.begin(), simplex_end);
   }
 
-  template<class Container, class Function> static NelderMead<Number, dimensions> create(const Container& container, Function function)
+  template<class Container, class Function> static NelderMead<Number, dimensions> create(const Container& container, Function& function)
   {
     return create(begin(container), end(container), function);
   }
