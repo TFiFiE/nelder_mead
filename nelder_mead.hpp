@@ -50,6 +50,16 @@ template<class Number, unsigned int dimensions> struct NelderMead {
 
   static bool is_better_than(const Vertex& lhs, const Vertex& rhs) { return output(lhs) < output(rhs); }
 
+  static bool nan_is_better_than(const Vertex& lhs, const Vertex& rhs)
+  {
+    if (std::isnan(output(lhs)))
+      return false;
+    else if (std::isnan(output(rhs)))
+      return true;
+    else
+      return is_better_than(lhs, rhs);
+  }
+
   template<class Iterator> static Input centroid(const Iterator begin, const Iterator end, const Number one_over_distance)
   {
     Input result = {{0}};
@@ -83,7 +93,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
                                  const Number contraction_parameter = 3 / Number(4) - 1 / Number(2 * dimensions),
                                  const Number shrinkage_parameter = 1 - 1 / Number(dimensions))
   {
-    assert(std::is_sorted(best, past_worst, is_better_than));
+    assert(std::is_sorted(best, past_worst, nan_is_better_than));
 
     const Vertex reflection = extrapolate(best_centroid, *worst, inverse_reflection_parameter, function, REFLECTION);
 
@@ -124,7 +134,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
       const Input old_best = input(*best);
       for (auto vertex = second_best; vertex != past_worst; ++vertex)
         *vertex = extrapolate(input(*best), *vertex, shrinkage_parameter, function, SHRINK);
-      std::stable_sort(best, past_worst, is_better_than);
+      std::stable_sort(best, past_worst, nan_is_better_than);
       best_centroid = centroid(best, worst, one_over_num_best);
       return {SHRINK, old_best == input(*best) ? 1 : 0};
     }
@@ -145,7 +155,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
   {
     for (auto& vertex : vertices)
       output(vertex) = function(input(vertex), INITIALIZATION);
-    std::stable_sort(best, past_worst, is_better_than);
+    std::stable_sort(best, past_worst, nan_is_better_than);
     best_centroid = centroid(best, worst, one_over_num_best);
   }
 
@@ -159,7 +169,7 @@ template<class Number, unsigned int dimensions> struct NelderMead {
       vertices.emplace_back(*input, function(*input, INITIALIZATION));
 
     const auto simplex_end = vertices.begin() + std::min(dimensions + 1, num_vertices);
-    std::partial_sort(vertices.begin(), simplex_end, vertices.end(), is_better_than);
+    std::partial_sort(vertices.begin(), simplex_end, vertices.end(), nan_is_better_than);
     return NelderMead<Number, dimensions>(vertices.begin(), simplex_end);
   }
 
