@@ -2,13 +2,12 @@
 #define NELDER_MEAD_HPP
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <random>
 #include <vector>
 
-template<class Number, unsigned int dimensions> struct NelderMead {
-  typedef std::array<Number, dimensions> Input;
+template<class Number> struct NelderMead {
+  typedef std::vector<Number> Input;
   typedef std::pair<Input, Number> Vertex;
 
   enum Step {
@@ -20,13 +19,23 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     SHRINK
   };
 
+  const unsigned int num_dim;
   std::vector<Vertex> vertices;
   const typename std::vector<Vertex>::iterator best, past_worst, second_best, worst, second_worst;
   const Number one_over_num_best;
   Input best_centroid;
 
+  template<class Container> NelderMead(const Container& container) : NelderMead(std::begin(container), std::end(container)) {}
+
+  template<class Container> NelderMead(const Container& container, const unsigned int num_dim) : NelderMead(std::begin(container), std::end(container), num_dim)
+  {
+  }
+
+  template<class Iterator> NelderMead(const Iterator begin, const Iterator end) : NelderMead(begin, end, begin->size()) {}
+
   template<class Iterator>
-  NelderMead(const Iterator begin, const Iterator end) :
+  NelderMead(const Iterator begin, const Iterator end, const unsigned int num_dim_) :
+    num_dim(num_dim_),
     vertices{begin, end},
     best(std::begin(vertices)),
     past_worst(std::end(vertices)),
@@ -37,8 +46,6 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     best_centroid(centroid(best, worst, one_over_num_best))
   {
   }
-
-  template<class Container> NelderMead(const Container& container) : NelderMead(std::begin(container), std::end(container)) {}
 
   static Input& input(Vertex& vertex) { return vertex.first; }
 
@@ -60,38 +67,47 @@ template<class Number, unsigned int dimensions> struct NelderMead {
       return is_better_than(lhs, rhs);
   }
 
-  template<class Iterator> static Input centroid(const Iterator begin, const Iterator end, const Number one_over_distance)
+  template<class Iterator> Input centroid(const Iterator begin, const Iterator end, const Number one_over_distance)
   {
-    Input result = {{0}};
+    Input result(num_dim);
     for (Iterator vertex = begin; vertex != end; ++vertex)
-      for (unsigned int c = 0; c < dimensions; ++c)
+      for (unsigned int c = 0; c < num_dim; ++c)
         result[c] += input(*vertex)[c];
-    for (unsigned int c = 0; c < dimensions; ++c)
+    for (unsigned int c = 0; c < num_dim; ++c)
       result[c] *= one_over_distance;
     return result;
   }
 
-  template<class Function> static Vertex extrapolate(const Input& origin, const Vertex& reference, const Number factor, Function& function, const Step step)
+  template<class Function> Vertex extrapolate(const Input& origin, const Vertex& reference, const Number factor, Function& function, const Step step)
   {
-    Vertex result;
-    for (unsigned int c = 0; c < dimensions; ++c)
-      input(result)[c] = origin[c] + factor * (input(reference)[c] - origin[c]);
-    output(result) = function(input(result), step);
-    return result;
+    Input result;
+    result.reserve(num_dim);
+    for (unsigned int c = 0; c < num_dim; ++c)
+      result.emplace_back(origin[c] + factor * (input(reference)[c] - origin[c]));
+    return {result, function(result, step)};
   }
 
   void update_best_centroid(const Vertex& replacer)
   {
-    for (unsigned int c = 0; c < dimensions; ++c)
+    for (unsigned int c = 0; c < num_dim; ++c)
       best_centroid[c] += (input(replacer)[c] - input(*worst)[c]) * one_over_num_best;
+  }
+
+  template<class Function> std::pair<Step, int> iteration(Function& function)
+  {
+    const Number inverse_reflection_parameter = -1;
+    const Number expansion_parameter = 1 + 2 / Number(num_dim);
+    const Number contraction_parameter = 3 / Number(4) - 1 / Number(2 * num_dim);
+    const Number shrinkage_parameter = 1 - 1 / Number(num_dim);
+    return iteration(function, inverse_reflection_parameter, expansion_parameter, contraction_parameter, shrinkage_parameter);
   }
 
   template<class Function>
   std::pair<Step, int> iteration(Function& function,
-                                 const Number inverse_reflection_parameter = -1,
-                                 const Number expansion_parameter = 1 + 2 / Number(dimensions),
-                                 const Number contraction_parameter = 3 / Number(4) - 1 / Number(2 * dimensions),
-                                 const Number shrinkage_parameter = 1 - 1 / Number(dimensions))
+                                 const Number inverse_reflection_parameter,
+                                 const Number expansion_parameter,
+                                 const Number contraction_parameter,
+                                 const Number shrinkage_parameter)
   {
     assert(std::is_sorted(best, past_worst, nan_is_better_than));
 
@@ -159,7 +175,23 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     best_centroid = centroid(best, worst, one_over_num_best);
   }
 
-  template<class Iterator, class Function> static NelderMead<Number, dimensions> create(const Iterator begin, const Iterator end, Function& function)
+  template<class Container, class Function> static NelderMead<Number> create(Function& function, const Container& container)
+  {
+    return create(function, std::begin(container), std::end(container));
+  }
+
+  template<class Container, class Function> static NelderMead<Number> create(Function& function, const Container& container, const unsigned int num_dim)
+  {
+    return create(function, std::begin(container), std::end(container), num_dim);
+  }
+
+  template<class Iterator, class Function> static NelderMead<Number> create(Function& function, const Iterator begin, const Iterator end)
+  {
+    return create(function, begin, end, begin->size());
+  }
+
+  template<class Iterator, class Function>
+  static NelderMead<Number> create(Function& function, const Iterator begin, const Iterator end, const unsigned int num_dim)
   {
     const unsigned int num_vertices = std::distance(begin, end);
     assert(num_vertices > 1);
@@ -168,23 +200,22 @@ template<class Number, unsigned int dimensions> struct NelderMead {
     for (Iterator input = begin; input != end; ++input)
       vertices.emplace_back(*input, function(*input, INITIALIZATION));
 
-    const auto simplex_end = vertices.begin() + std::min(dimensions + 1, num_vertices);
+    const auto simplex_end = vertices.begin() + std::min(num_dim + 1, num_vertices);
     std::partial_sort(vertices.begin(), simplex_end, vertices.end(), nan_is_better_than);
-    return NelderMead<Number, dimensions>(vertices.begin(), simplex_end);
+    return NelderMead<Number>(vertices.begin(), simplex_end, num_dim);
   }
 
-  template<class Container, class Function> static NelderMead<Number, dimensions> create(const Container& container, Function& function)
+  template<class Generator> static std::vector<Input> random_polytope(Generator& generator, const std::vector<std::pair<Number, Number>>& ranges)
   {
-    return create(std::begin(container), std::end(container), function);
+    return random_polytope(generator, ranges, ranges.size() + 1);
   }
 
   template<class Generator>
-  static std::vector<Input> random_polytope(Generator& generator,
-                                            const std::array<std::pair<Number, Number>, dimensions>& ranges,
-                                            const unsigned int num_vertices = dimensions + 1)
+  static std::vector<Input> random_polytope(Generator& generator, const std::vector<std::pair<Number, Number>>& ranges, const unsigned int num_vertices)
   {
-    std::vector<Input> result(num_vertices);
-    for (unsigned int c = 0; c < dimensions; ++c) {
+    const unsigned int num_dim = ranges.size();
+    std::vector<Input> result(num_vertices, Input(num_dim));
+    for (unsigned int c = 0; c < num_dim; ++c) {
       std::uniform_real_distribution<> distribution(ranges[c].first, ranges[c].second);
       for (auto& vertex : result)
         vertex[c] = distribution(generator);
