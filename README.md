@@ -6,8 +6,7 @@
 template<class Number> inline Number square(const Number number) { return number * number; }
 
 template<class Number> struct Rosenbrock {
-  Number operator()(const std::vector<Number>& input,
-                    const typename NelderMead<Number>::Step) const
+  Number operator()(const std::vector<Number>& input) const
   {
     return square(1 - input[0]) + 100 * square(input[1] - square(input[0]));
   }

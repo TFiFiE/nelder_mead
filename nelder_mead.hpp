@@ -47,6 +47,31 @@ template<class Number> struct NelderMead {
   {
   }
 
+  template<class Function> struct WithStep {
+    template<class Function_> static auto test(Function_* p) -> decltype((*p)(Input(), INITIALIZATION), std::true_type());
+    template<class> static auto test(...) -> std::false_type;
+    static constexpr bool value = decltype(test<Function>(nullptr))::value;
+  };
+
+  template<class Function> struct WithoutStep {
+    template<class Function_> static auto test(Function_* p) -> decltype((*p)(Input()), std::true_type());
+    template<class> static auto test(...) -> std::false_type;
+    static constexpr bool value = decltype(test<Function>(nullptr))::value;
+  };
+
+  template<class Function> static typename std::enable_if<WithStep<Function>::value, Number>::type call(Function& function, const Input& input, const Step step)
+  {
+    return function(input, step);
+  }
+
+  template<class Function>
+  static typename std::enable_if<WithoutStep<Function>::value && !WithStep<Function>::value, Number>::type call(Function& function,
+                                                                                                                const Input& input,
+                                                                                                                const Step)
+  {
+    return function(input);
+  }
+
   static Input& input(Vertex& vertex) { return vertex.first; }
 
   static const Input& input(const Vertex& vertex) { return vertex.first; }
@@ -84,7 +109,7 @@ template<class Number> struct NelderMead {
     result.reserve(num_dim);
     for (unsigned int c = 0; c < num_dim; ++c)
       result.emplace_back(origin[c] + factor * (input(reference)[c] - origin[c]));
-    return {result, function(result, step)};
+    return {result, call(function, result, step)};
   }
 
   void update_best_centroid(const Vertex& replacer)
@@ -170,7 +195,7 @@ template<class Number> struct NelderMead {
   template<class Function> void recalculate(Function& function)
   {
     for (auto& vertex : vertices)
-      output(vertex) = function(input(vertex), INITIALIZATION);
+      output(vertex) = call(function, input(vertex), INITIALIZATION);
     std::stable_sort(best, past_worst, nan_is_better_than);
     best_centroid = centroid(best, worst, one_over_num_best);
   }
@@ -198,7 +223,7 @@ template<class Number> struct NelderMead {
     std::vector<Vertex> vertices;
     vertices.reserve(num_vertices);
     for (Iterator input = begin; input != end; ++input)
-      vertices.emplace_back(*input, function(*input, INITIALIZATION));
+      vertices.emplace_back(*input, call(function, *input, INITIALIZATION));
 
     const auto simplex_end = vertices.begin() + std::min(num_dim + 1, num_vertices);
     std::partial_sort(vertices.begin(), simplex_end, vertices.end(), nan_is_better_than);
